@@ -15,10 +15,13 @@ public class Main {
 		column3.addValue("B");
 		column3.addValue("C");
 		column3.addValue("D");
+		Table t1 = new Table("table1", new String[] {"column1", "column2"});
+		t1.addColumn("column1", column1);
+		t1.addColumn("column2", column2);
+		t1.addColumn("column3", column3);
+		column3.addValue("E"); //! problematique
 		Database database = new Database();
-		database.addColumn("column1", column1);
-		database.addColumn("column2", column2);
-		database.addColumn("column3", column3);
+		database.addTable(t1);
 		System.out.println(database);
 	}
 }
