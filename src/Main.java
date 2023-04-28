@@ -1,6 +1,25 @@
+import java.sql.*;
+
 public class Main {
 	public static void main(String[] args) {
-		Column<String> column1 = new Column<String>();
+		try{
+			Class.forName("org.postgresql.Driver");
+			Connection co = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "postgres", "postgres");
+			Statement st = co.createStatement();
+			ResultSet rs = st.executeQuery("SELECT * FROM tabletest");
+
+			while (rs.next()) {
+				System.out.println(rs.getInt("entier"));
+			}
+
+			rs.close();
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+
+		/*Column<String> column1 = new Column<String>();
 		column1.addValue("a");
 		column1.addValue("b");
 		column1.addValue("c");
@@ -22,6 +41,6 @@ public class Main {
 		column3.addValue("E"); //! problematique
 		Database database = new Database();
 		database.addTable(t1);
-		System.out.println(database);
+		System.out.println(database);*/
 	}
 }
