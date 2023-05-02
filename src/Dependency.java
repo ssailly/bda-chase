@@ -1,5 +1,6 @@
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
 
 public class Dependency {
@@ -31,6 +32,32 @@ public class Dependency {
 		/**
 		 * Construire la requête SQL
 		 */
+		return false;
+	}
+
+	public boolean satisfyTGD(TGD dependancy, Statement st, String table) {
+		String query = "SELECT ";
+		// Récupérer les colonnes de phi
+		String phi = "";
+		for (RelationalAtom atom : dependancy.phi) {
+			phi += atom.nomCol + ", ";
+		}
+		phi = phi.substring(0, query.length() - 2);
+		query += phi + " FROM " + table + " GROUP BY " + phi + " HAVING ";
+		// Récupérer les colonnes de psi
+		for (RelationalAtom atom : dependancy.psi) {
+			query += "COUNT(DISTINCT " + atom.nomCol + ") * ";
+		}
+		query = query.substring(0, query.length() - 2);
+		query += " <> COUNT(*);";
+		ResultSet rs;
+		try {
+			rs = st.executeQuery(query);
+			// Si le résultat est vide, renvoyer true
+			if (!rs.next()) return true;
+		} catch (SQLException e) {
+			System.err.println("Error while executing query : " + query);
+		}
 		return false;
 	}
 
