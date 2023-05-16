@@ -1,32 +1,56 @@
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Dependency {
-	//private ArrayList<String> leftMember, rightMember;
+	boolean applied = false;
+	static abstract class Atom {}
 
-	abstract class Atom {
-		boolean isConst;
+	static class RelationalAtom extends Atom {
+		/**
+		 * String : nom de la colonne
+		 * Boolean : true si valeur constante, false sinon
+		 */
+		Map<String, Boolean> colonnes; // seulement les colonnes qui rentrent en jeu dans la dependance
+		Map<String, String> constants = new HashMap<>();
+		Map<Integer, String> order = new HashMap<>(); // pour les non constantes
+		Table table; // le reste des colonnes : generateNullValue()
+
+		RelationalAtom(Table table, Map<String, Boolean> colonnes) {
+			this.table = table;
+			this.colonnes = colonnes;
+		}
+
+		RelationalAtom(Table table, Map<String, Boolean> colonnes, Map<String, String> constants) {
+			this.table = table;
+			this.colonnes = colonnes;
+			this.constants = constants;
+		}
 	}
 
-	class RelationalAtom extends Atom {
-		String nomCol;
-	}
-
-	class EqualityAtom extends Atom {
+	static class EqualityAtom extends Atom {
 		String nomCol1, nomCol2;
-		boolean isConst2;
+		Table table1, table2;
+		/**
+		 * Boolean : true si la colonne est constante, false sinon
+		 */
+		boolean isConst1, isConst2;
+
+		EqualityAtom(Table table1, String nomCol1, boolean isConst1, Table table2, String nomCol2, boolean isConst2) {
+			this.table1 = table1;
+			this.table2 = table2;
+			this.nomCol1 = nomCol1;
+			this.nomCol2 = nomCol2;
+			this.isConst1 = isConst1;
+			this.isConst2 = isConst2;
+		}
 	}
 
-	class EGD {
-		List<Atom> phi;
-		List<EqualityAtom> psi;
-	}
 
-	class TGD {
-		List<RelationalAtom> phi, psi;
-	}
 
 	public boolean satisfyEGD(EGD dependancy, Statement st) {
 		/**
@@ -40,13 +64,13 @@ public class Dependency {
 		// Récupérer les colonnes de phi
 		String phi = "";
 		for (RelationalAtom atom : dependancy.phi) {
-			phi += atom.nomCol + ", ";
+			// phi += atom.nomCol + ", ";
 		}
 		phi = phi.substring(0, query.length() - 2);
 		query += phi + " FROM " + table + " GROUP BY " + phi + " HAVING ";
 		// Récupérer les colonnes de psi
 		for (RelationalAtom atom : dependancy.psi) {
-			query += "COUNT(DISTINCT " + atom.nomCol + ") * ";
+			// query += "COUNT(DISTINCT " + atom.nomCol + ") * ";
 		}
 		query = query.substring(0, query.length() - 2);
 		query += " <> COUNT(*);";
@@ -61,7 +85,11 @@ public class Dependency {
 		return false;
 	}
 
-	/*public Dependency() {
+
+	/* ANCIENNE IMPLEMENTATION SANS JDBC
+	private ArrayList<String> leftMember, rightMember;
+
+	public Dependency() {
 		this.leftMember = new ArrayList<String>();
 		this.rightMember = new ArrayList<String>();
 	}

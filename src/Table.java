@@ -1,8 +1,9 @@
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 public class Table {
-    // assurer \forall c1, c2 \in rows, c1.size() == c2.size()
+    /*// assurer \forall c1, c2 \in rows, c1.size() == c2.size()
     private int columnSize;
     private HashMap<String, Column> rows;
     private String[] primaryKey;
@@ -81,5 +82,28 @@ public class Table {
         public MissingPrimaryKeyException() {
             super(message);
         }
+    }*/
+
+    private String name;
+    private int nbColumns;
+    private List<String> columns;
+
+
+    public Table(String name, List<String> columns) {
+        this.name = name;
+        this.nbColumns = columns.size();
+        this.columns = columns;
+    }
+
+    public String getName() {
+        return this.name;
+    }
+
+    public int getNbColumns() {
+        return this.nbColumns;
+    }
+
+    public List<String> getColumns() {
+        return this.columns;
     }
 }
