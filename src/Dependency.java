@@ -30,6 +30,13 @@ public class Dependency {
 			this.colonnes = colonnes;
 			this.constants = constants;
 		}
+
+		RelationalAtom(Table table, Map<String, Boolean> colonnes, Map<String, String> constants, Map<Integer, String> order) {
+			this.table = table;
+			this.colonnes = colonnes;
+			this.constants = constants;
+			this.order = order;
+		}
 	}
 
 	static class EqualityAtom extends Atom {

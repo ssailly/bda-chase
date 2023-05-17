@@ -1,0 +1,7 @@
+TAB R1(A;B),R2(A;B),R3(A;B),P1(C;D),P2(C;D),P3(C;D),Q1(E;F;G),Q2(E;F;G),Q3(E;F;G)
+TAB ds_salaries(work_year;experience_level;employment_type;job_title;salary;salary_currency;salary_in_usd;employee_residence;remote_ratio;company_location;company_size)
+TAB product_info(product_id;product_name;brand_id;brand_name;loves_count;rating;reviews;price_usd;limited_edition;new;online_only;out_of_stock;sephora_exclusive;primary_category;secondary_category;tertiary_category)
+TGD R1(A=x1;B=x2)->Q1(E=x1;F=x2;G=z1)
+TGD Q2(E=y1;F=x1;G=y2)->P2(C=x1;D=z2)
+EGD R3(A=x1;B=y1),P3(C=y2;D=x2),R3.A=P3.D->R3.A=P3.D
+EGD ds_salaries.salary_currency=USD->ds_salaries.salary=ds_salaries.salary_in_usd
