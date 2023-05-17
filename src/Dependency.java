@@ -1,9 +1,7 @@
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Dependency {
@@ -37,6 +35,15 @@ public class Dependency {
 			this.constants = constants;
 			this.order = order;
 		}
+
+		public String toString() {
+			String s = table.getName() + "(";
+			for(Map.Entry<String, String> entry : constants.entrySet()) s += entry.getKey() + "='" + entry.getValue() + "';";
+			for(Map.Entry<Integer, String> entry : order.entrySet()) s += entry.getValue() + "=" + entry.getKey() + ";";
+			s = s.substring(0, s.length() - 1);
+			s += ")";
+			return s;
+		}
 	}
 
 	static class EqualityAtom extends Atom {
@@ -54,6 +61,17 @@ public class Dependency {
 			this.nomCol2 = nomCol2;
 			this.isConst1 = isConst1;
 			this.isConst2 = isConst2;
+		}
+
+		public String toString() {
+			String s = "";
+			if(isConst1) s += "'" + nomCol1 + "'=" + table2.getName() + "." + nomCol2;
+			else {
+				s += table1.getName() + "." + nomCol1 + "=";
+				if(isConst2) s += "'" + nomCol2 + "'";
+				else s += table2.getName() + "." + nomCol2;
+			}
+			return s;
 		}
 	}
 
