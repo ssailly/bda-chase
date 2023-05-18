@@ -1,5 +1,3 @@
-import jdk.jfr.Relational;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,5 +50,15 @@ class TGD extends Dependency {
                 }
             }
             return res;
+    }
+
+    public String toString() {
+        String s = "";
+        for(RelationalAtom atom : phi) s += atom + ",";
+        s = s.substring(0, s.length() - 1);
+        s += "->";
+        for(RelationalAtom atom : psi) s += atom + ",";
+        s = s.substring(0, s.length() - 1);
+        return s;
     }
 }
