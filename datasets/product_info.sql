@@ -62,9 +62,9 @@ FROM product_info_full;
 DROP TABLE product_info_full;
 
 CREATE TABLE category_info (
-	category_id SERIAL PRIMARY KEY,
 	category_name VARCHAR(255)
 );
 
 INSERT INTO category_info (category_name)
-SELECT DISTINCT secondary_category FROM product_info;
+SELECT DISTINCT secondary_category FROM product_info
+WHERE secondary_category IS NOT NULL;
