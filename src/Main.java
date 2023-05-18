@@ -20,7 +20,7 @@ public class Main {
 				System.out.println();
 			}
 
-			Table r = new Table("X", List.of("a", "b", "x"));
+			/*Table r = new Table("X", List.of("a", "b", "x"));
 			Table p = new Table("P", List.of("c", "d"));
 			Table q = new Table("Q", List.of("e", "f", "g"));
 			// R(x1, x2) -> Q(x1, x2, z1)
@@ -71,15 +71,61 @@ public class Main {
 
 			Map<String, String> constants = new HashMap<>();
 			constants.put("a", "a");
-			constants.put("b", "b");
+			constants.put("b", "b");*/
 			//System.out.println(Arrays.stream(Chase.selectAllWithConstants(co, r, constants).get(0)).toList());
 
 			/*System.out.println(Chase.canApply(co, tgd));
 			System.out.println(Chase.canApply(co, tgd2));
 			System.out.println(Chase.canApply(co, egd));*/
 
+            System.out.println("----------- chase example 2 ----------");
+            Table _r = new Table("_R", List.of("a", "b"));
+            Table _p = new Table("_P", List.of("c", "d"));
+            Table _q = new Table("_Q", List.of("e", "f", "g"));
 
+            // c1 : R(x1, x2) -> Q(x1, x2, z1)
+            Map<String, Boolean> cols_c1phi = Map.of("a", false, "b", false);
+            Dependency.RelationalAtom ra_c1 = new Dependency.RelationalAtom(_r, cols_c1phi);
+            ra_c1.order = Map.of(1, "a", 2, "b");
 
+            Map<String, Boolean> cols_c1psi = Map.of("e", false, "f", false, "g", false);
+            Dependency.RelationalAtom ra_c1psi = new Dependency.RelationalAtom(_q, cols_c1psi);
+            ra_c1psi.order = Map.of(1, "e", 2, "f", 3, "g");
+
+            TGD c1 = new TGD(List.of(ra_c1), List.of(ra_c1psi));
+
+            // c2 : Q(y1, x1, y2) -> P(x1, z1)
+            Map<String, Boolean> cols_c2phi = Map.of("e", false, "f", false, "g", false);
+            Dependency.RelationalAtom ra_c2phi = new Dependency.RelationalAtom(_q, cols_c2phi);
+            ra_c2phi.order = Map.of(1, "e", 2, "f", 3, "g");
+
+            Map<String, Boolean> cols_c2psi = Map.of("c", false, "d", false);
+            Dependency.RelationalAtom ra_c2psi = new Dependency.RelationalAtom(_p, cols_c2psi);
+            ra_c2psi.order = Map.of(2, "c", 4, "d");
+
+            TGD c2 = new TGD(List.of(ra_c2phi), List.of(ra_c2psi));
+
+            // c3 : R(x1, y1) ^ P(y2, x2) ^ y1 = y2 -> x1 = x2
+            Map<String, Boolean> cols_c3phi = Map.of("a", false, "b", false);
+            Dependency.RelationalAtom ra_c3phi = new Dependency.RelationalAtom(_r, cols_c3phi);
+            ra_c3phi.order = Map.of(1, "a", 2, "b");
+            Map<String, Boolean> cols_c3phi2 = Map.of("c", false, "d", false);
+            Dependency.RelationalAtom ra_c3phi2 = new Dependency.RelationalAtom(_p, cols_c3phi2);
+            ra_c3phi2.order = Map.of(3, "c", 4, "d");
+            Dependency.EqualityAtom ea_c3phi = new Dependency.EqualityAtom(_r, "b", false, _p, "c", false);
+
+            Dependency.EqualityAtom ea_c3psi = new Dependency.EqualityAtom(_r, "a", false, _p, "d", false);
+
+            EGD c3 = new EGD(List.of(ra_c3phi, ra_c3phi2, ea_c3phi), List.of(ea_c3psi));
+
+            List<Dependency> dependencies = List.of(c1, c2, c3);
+
+           /* dependencies.stream().forEach(d -> {
+                if(d instanceof TGD) System.out.println(Chase.canApply(co, (TGD) d));
+                else System.out.println(Chase.canApply(co, (EGD) d));
+            });*/
+
+            System.out.println(Chase.chase(co, dependencies) ? "BD reparee" : "BD cassee");
 
 			rs.close();
 		} catch (SQLException e) {
