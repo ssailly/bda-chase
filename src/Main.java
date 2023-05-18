@@ -8,7 +8,7 @@ public class Main {
 	public static void main(String[] args) throws FileNotFoundException {
 		try{
 			Class.forName("org.postgresql.Driver");
-			Connection co = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "postgres", "DackQuar");
+			Connection co = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "postgres", "postgres");
 			List<Dependency> dependencies = Parser.parse("datasets/dependencies");
       System.out.println(Chase.chase(co, dependencies) ? "BD reparee" : "BD cassee");
 
