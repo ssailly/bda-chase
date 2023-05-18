@@ -52,10 +52,22 @@ public class Main {
 					List.of(new Dependency.RelationalAtom(p, colsPsi2))
 					);
 
-			// R(x1, y1) ^ P(y2, x2) ^ y1 = y2 -> x1 = x2
+			//   A   B   X    	 C   D    R.B = P.C-> R.A = P.D
+			// R(x1, y1, z1) ^ P(y2, x2) ^ y1 = y2 -> x1 = x2
+
+			System.out.println("----------- test EGD1 -----------");
+
 			EGD egd = new EGD();
 			Dependency.EqualityAtom equalityAtom = new Dependency.EqualityAtom(r,"a", false, p, "d", false);
-			egd.phi = List.of(equalityAtom);
+			Dependency.RelationalAtom ra1 = new Dependency.RelationalAtom(r, Map.of("a", false, "b", false));
+			Dependency.RelationalAtom ra2 = new Dependency.RelationalAtom(p, Map.of("c", false, "d", false));
+			Dependency.EqualityAtom equalityAtom2 = new Dependency.EqualityAtom(r, "b", false, p, "c", false);
+			egd.phi = List.of(ra1, ra2, equalityAtom2);
+			egd.psi = List.of(equalityAtom);
+
+			Chase.verifiesEGD(co, egd);
+
+			System.out.println("--------------------------------------");
 
 			Map<String, String> constants = new HashMap<>();
 			constants.put("a", "a");

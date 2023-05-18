@@ -105,72 +105,216 @@ public class Chase {
     }
 
     /**
+     * Regarder si pour chaque atome relationnel, la table n'est pas vide
      * @param conn
      * @param tgd
      * @return true if the tgd can be applied on the database (all tables are not empty)
      */
     public static boolean canApply(Connection conn, TGD tgd) {
         for(Dependency.RelationalAtom atom : tgd.phi) {
-            if(selectColumns(conn, atom.table, atom.colonnes.keySet().stream().toList()).size() == 0) return false;
-            if(atom.constants != null && selectAllWithConstants(conn, atom.table, atom.constants).size() == 0) return false;
+            if(selectColumns(conn, atom.table, atom.order.values().stream().toList()).size() == 0) return false;
+            if(atom.constants != null &&
+               atom.constants.size() > 0 &&
+               selectAllWithConstants(conn, atom.table, atom.constants).size() == 0) return false;
         }
         return true;
     }
 
+    /**
+     * Regarder si pour chaque atome relationnel ou d'egalite, les tables ne sont pas vides
+     * @param conn
+     * @param egd
+     * @return
+     */
     public static boolean canApply(Connection conn, EGD egd) {
         for(Dependency.Atom atom : egd.phi) {
             if(atom instanceof Dependency.EqualityAtom) {
                 Dependency.EqualityAtom equalityAtom = (Dependency.EqualityAtom) atom;
-                if(selectColumn(conn, equalityAtom.table1, equalityAtom.nomCol1).size() == 0 || selectColumn(conn, equalityAtom.table2, equalityAtom.nomCol2).size() == 0) return false;
+                if((!equalityAtom.isConst1 && selectColumn(conn, equalityAtom.table1, equalityAtom.nomCol1).size() == 0)
+                || (!equalityAtom.isConst2 && selectColumn(conn, equalityAtom.table2, equalityAtom.nomCol2).size() == 0)) return false;
             }
             else {
                 Dependency.RelationalAtom relationalAtom = (Dependency.RelationalAtom) atom;
-                if(selectColumns(conn, relationalAtom.table, relationalAtom.colonnes.keySet().stream().toList()).size() == 0) return false;
-                if(relationalAtom.constants != null && selectAllWithConstants(conn, relationalAtom.table, relationalAtom.constants).size() == 0) return false;
+                if(selectColumns(conn, relationalAtom.table, relationalAtom.order.values().stream().toList()).size() == 0) return false;
+                if(relationalAtom.constants != null &&
+                   relationalAtom.constants.size() > 0 &&
+                   selectAllWithConstants(conn, relationalAtom.table, relationalAtom.constants).size() == 0) return false;
             }
         }
         return true;
     }
 
-    public static String generateNullValue(String colName){
-        String res = "null_" + colName + nullCounter;
-        nullCounter++;
-        return res;
-    }
+    /*****************************************************
+     *               TRAITEMENT DES EGD                  *
+     *****************************************************/
 
-    public static void insertTuple(Connection conn, Table table, Map<String, String> tuple) {
-        String query = "INSERT INTO " + table.getName() + " VALUES (";
-        for(String col : table.getColumns()){
-            query += "'" + tuple.get(col) + "', ";
-        }
-        query = query.substring(0, query.length() - 2); // remove last comma
-        query += ");";
-        System.out.println("-> " +query);
-        try (Statement statement = conn.createStatement()) {
-            statement.executeUpdate(query);
-        } catch (SQLException e) {
-            System.err.println(e.getMessage());
-        }
-    }
+    public static void verifiesEGD(Connection conn, EGD egd){
+        /**
+         * On cree la condition de mise a jour i.e il faut que
+         * le corps de la dependance soit verifiee (phi)
+         *
+         * WHERE en 2 parties :
+         * 1. la satisfaction de phi => construction dans la methode verifiesEGD
+         * 2. pour tout equalityAtom dans psi,
+         *      equalityAtom.col1 <> equalityAtom.col2
+         *      OR equalityAtom.col1 IS NULL
+         *      OR equalityAtom.col2 IS NULL
+         *    => construction dans la methode egalize
+         */
 
-    private static int getMaxOrder(TGD tgd) {
-        int max = 0;
-        for(Dependency.RelationalAtom atom: tgd.phi) {
-            for(int order: atom.order.keySet()) {
-                if(order > max) max = order;
+        String cstPhi = "WHERE "; // par exemple si on a y1 = y2
+        String tablesPhi = ""; // tables utilisees dans phi
+        String colPhi = ""; // colonnes utilisees dans phi
+
+        /**
+         * On construit la suite de conjonction dans le where
+         */
+        for(Dependency.Atom atomPhi: egd.phi) {
+            if(atomPhi instanceof Dependency.EqualityAtom) {
+                Dependency.EqualityAtom equalityAtom = (Dependency.EqualityAtom) atomPhi;
+                String table1Name = equalityAtom.table1.getName();
+                String table2Name = equalityAtom.table2.getName();
+                if(!tablesPhi.contains(table1Name)) tablesPhi += equalityAtom.table1.getName() + ",";
+                if(!tablesPhi.contains(table2Name)) tablesPhi += equalityAtom.table2.getName() + ",";
+                if(equalityAtom.isConst1) {
+                    cstPhi += equalityAtom.table2.getName() + "." + equalityAtom.nomCol2 + " = '" + equalityAtom.nomCol1 + "' AND ";
+                } else if (equalityAtom.isConst2) {
+                    cstPhi += equalityAtom.table1.getName() + "." + equalityAtom.nomCol1 + " = '" + equalityAtom.nomCol2 + "' AND ";
+                } else {
+                    cstPhi += equalityAtom.table1.getName() + "." + equalityAtom.nomCol1 + " = " + equalityAtom.table2.getName() + "." + equalityAtom.nomCol2 + " AND ";
+                }
+            }
+            else {
+                Dependency.RelationalAtom relationalAtom = (Dependency.RelationalAtom) atomPhi;
+                String tableName = relationalAtom.table.getName();
+                if(!tablesPhi.contains(tableName)) tablesPhi += tableName + ",";
+                for(String col: relationalAtom.constants.keySet()) {
+                    cstPhi += relationalAtom.table.getName() + "." + col + " = '" + relationalAtom.constants.get(col) + "' AND ";
+                }
+                for(String col: relationalAtom.colonnes.keySet()) colPhi += relationalAtom.table.getName() + "." + col + ",";
             }
         }
-        return max;
+        tablesPhi = tablesPhi.substring(0, tablesPhi.length() - 1); // remove last comma
+        cstPhi = cstPhi.substring(0, cstPhi.length() - 5); // remove last AND
+        colPhi = colPhi.substring(0, colPhi.length() - 1); // remove last comma
+
+        /**
+         * La deuxieme partie du where s'assure l'existence de tuples
+         * pour les colonnes utilisees dans phi
+         */
+        String wherePart = cstPhi + " AND EXISTS (SELECT " + colPhi + " FROM " + tablesPhi + " LIMIT 1)";
+
+        /**
+         * On egalise les colonnes de psi, un atome d'egalite a la fois
+         */
+         for (Dependency.EqualityAtom atom : egd.psi) {
+            egalize(conn, atom, wherePart);
+         }
     }
 
+    private static void egalize(Connection conn, Dependency.EqualityAtom atom, String phiCondition) {
+        System.out.println("PHI CONDITION = "+phiCondition);
 
-    /*select * from LEFT_TABLES where LEFT_CSTS AND not exists (select * from RIGHT_TABLES where RIGHT_CSTS and CONSTRAINTS (r.a = q.e));*/
-    public static List<Map<String, String>> satisfiesTGD(Connection conn, TGD tgd){ // pas besoin de verifier l'applicabilite
+        /**
+         * T1 et T2 les tables de l'atome d'egalite
+         *
+         * 1) UNE DES VALEURS EST UNE CONSTANTE :
+         *
+         * UPDATE T1 SET col1 = 'valConst'
+         * WHERE phiCondition
+         * AND col1 <> 'valConst' OR col1 IS NULL;
+         *
+         * 2) AUCUNE VALEUR N'EST UNE CONSTANTE :
+         *
+         * UPDATE T1 SET col1 = T2.col2
+         * FROM T2
+         * WHERE phiCondition
+         * AND (T1.col1 <> T2.col2 OR T1.col1 IS NULL)
+         * AND T2.col2 IS NOT NULL;
+         *
+         * et meme requete en inversant T1(col1) et T2(col2)
+         */
+
+        if (atom.isConst1) {
+            updateTableWithConstant(conn, atom.table2.getName(), atom.nomCol2, atom.nomCol1, phiCondition);
+        }
+        else if (atom.isConst2){
+            updateTableWithConstant(conn, atom.table1.getName(), atom.nomCol1, atom.nomCol2, phiCondition);
+        }
+        else {
+            updateTable(
+                    conn,
+                    atom.table1.getName(),
+                    atom.table2.getName(),
+                    atom.nomCol1,
+                    atom.nomCol2,
+                    phiCondition
+            );
+            updateTable(
+                    conn,
+                    atom.table2.getName(),
+                    atom.table1.getName(),
+                    atom.nomCol2,
+                    atom.nomCol1,
+                    phiCondition
+            );
+        }
+    }
+
+    private static void updateTable(Connection conn, String tableToUpdate, String refTable, String colToUpdate, String refCol, String wherePart) {
+        String updateQuery =
+                "UPDATE " + tableToUpdate
+                + " SET " + colToUpdate + " = " + refTable + "." + refCol
+                + " FROM " + refTable + " " + wherePart
+                + " AND (" + refTable + "." + refCol + "<>" + tableToUpdate+ "." + colToUpdate
+                + " OR " + tableToUpdate+ "." + colToUpdate + " IS NULL)"
+                + " AND " + refTable + "." + refCol + " IS NOT NULL;";
+        System.out.println("update query -> " + updateQuery);
+
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate(updateQuery);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void updateTableWithConstant(Connection conn, String tableToUpdate, String colToUpdate, String constant, String wherePart) {
+        String updateQuery =
+                "UPDATE " + tableToUpdate
+                        + " SET " + colToUpdate + " = '" + constant + "'"
+                        + " " + wherePart
+                        + " AND (" + tableToUpdate+ "." + colToUpdate + "<>'" + constant + "'"
+                        + " OR " + tableToUpdate+ "." + colToUpdate + " IS NULL);";
+        System.out.println("update query const -> " + updateQuery);
+
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate(updateQuery);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /*****************************************************
+     *             FIN TRAITEMENT DES EGD                *
+     *****************************************************/
+
+
+    /*****************************************************
+     *               TRAITEMENT DES TGD                  *
+     *****************************************************/
+
+    /**
+     * select * from LEFT_TABLES
+     * where LEFT_CSTS
+     * AND not exists (select * from RIGHT_TABLES where RIGHT_CSTS and CONSTRAINTS (r.a = q.e));
+     * */
+    public static List<Map<String, String>> verifiesTGD(Connection conn, TGD tgd){ // pas besoin de verifier l'applicabilite
         String cstPhi = "WHERE ", cstPsi = "WHERE ";
         String tablesPhi = "", tablesPsi = "";
 
         for(Dependency.RelationalAtom atomPhi: tgd.phi) {
-            tablesPhi += atomPhi.table.getName() + ",";
+            String tableName = atomPhi.table.getName();
+            if(!tablesPhi.contains(tableName)) tablesPhi += tableName + ",";
             // constantes phi
             for(String col: atomPhi.constants.keySet()) {
                 cstPhi += atomPhi.table.getName() + "." + col + " = '" + atomPhi.constants.get(col) + "' AND ";
@@ -245,6 +389,36 @@ public class Chase {
         return null;
     }
 
+    private static int getMaxOrder(TGD tgd) {
+        int max = 0;
+        for(Dependency.RelationalAtom atom: tgd.phi) {
+            for(int order: atom.order.keySet()) {
+                if(order > max) max = order;
+            }
+        }
+        return max;
+    }
+
+    public static String generateNullValue(String colName){
+        String res = "null_" + colName + nullCounter;
+        nullCounter++;
+        return res;
+    }
+
+    public static void insertTuple(Connection conn, Table table, Map<String, String> tuple) {
+        String query = "INSERT INTO " + table.getName() + " VALUES (";
+        for(String col : table.getColumns()){
+            query += "'" + tuple.get(col) + "', ";
+        }
+        query = query.substring(0, query.length() - 2); // remove last comma
+        query += ");";
+        System.out.println("-> " +query);
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate(query);
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
+        }
+    }
 
     /**
      * 1. Pour chaque table de psi (rappel : phi et psi ne contiennent que des tables
@@ -271,6 +445,12 @@ public class Chase {
         }
     }
 
+    /*****************************************************
+     *             FIN TRAITEMENT DES TGD                *
+     *****************************************************/
+
+
+
     /**
      * Standard chase
      * @param conn
@@ -280,14 +460,25 @@ public class Chase {
      */
     public static boolean chase(Connection conn, List<Dependency> dependencies) throws SQLException {
         int applied = 0;
+        /**
+         * Tant que toutes les dependances n'ont pas ete appliquees
+         * (chaque dependance est appliquee au plus une fois)
+         */
         while(applied != dependencies.size()) {
             for(Dependency dependency : dependencies) {
                 if(!dependency.applied) {
                     if (dependency instanceof TGD) {
                         TGD tgd = (TGD) dependency;
                         if (canApply(conn, tgd)) {
-                            List<Map<String, String>> tuplesNotSatisfied = satisfiesTGD(conn, tgd);
+                            /**
+                             * On recupere les tuples qui ne satisfont pas la TGD
+                             */
+                            List<Map<String, String>> tuplesNotSatisfied = verifiesTGD(conn, tgd);
                             Map<String, String> correspondingCols = tgd.getCorrespondingColumnsFromOrder();
+                            /**
+                             * Si la liste n'est pas vide i.e la TGD n'est pas satisfaite,
+                             * on ajoute les tuples
+                             */
                             if (tuplesNotSatisfied.size() != 0) {// la tgd n'est pas satisfaite
                                 System.out.println("TGD NON SATISFAITE ! \nA inserer pour satisfaire la TGD = " + tuplesNotSatisfied);
                                 for (Map<String, String> toAdd : tuplesNotSatisfied) {
@@ -298,11 +489,12 @@ public class Chase {
                     } else {
                         EGD egd = (EGD) dependency;
                         if (canApply(conn, egd)) {
-                            /*for (String[] tuple : selectAll(conn, egd.phi.get(0).table)) {
-                                if (!tupleAlreadyExists(conn, egd.phi.get(1).table, tuple)) {
-                                    insertTuple(conn, egd.phi.get(1).table, tuple);
-                                }
-                            }*/
+                            System.out.println("ON APPLIQUE L'EGD " + egd);
+                            /**
+                             * On fait directement le scan des attributs dans psi et
+                             * on egalise si besoin
+                             */
+                            verifiesEGD(conn, egd);
                         }
                     }
                     dependency.applied = true;
