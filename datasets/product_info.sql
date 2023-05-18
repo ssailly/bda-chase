@@ -2,6 +2,7 @@
 
 DROP TABLE IF EXISTS product_info_full;
 DROP TABLE IF EXISTS product_info;
+DROP TABLE IF EXISTS category_info;
 
 CREATE TEMP TABLE product_info_full(
 	product_id VARCHAR(255) PRIMARY KEY,
@@ -54,10 +55,16 @@ CREATE TABLE product_info (
 
 \copy product_info_full FROM 'datasets/product_info.csv' WITH (DELIMITER ',', NULL '', FORMAT CSV, HEADER TRUE);
 
-INSERT INTO product_info
-SELECT (
+INSERT INTO product_info SELECT
 	product_id, product_name, brand_id, brand_name, loves_count, rating, reviews, price_usd, limited_edition, new, online_only, out_of_stock, sephora_exclusive, primary_category, secondary_category, tertiary_category
-)
 FROM product_info_full;
 
 DROP TABLE product_info_full;
+
+CREATE TABLE category_info (
+	category_id SERIAL PRIMARY KEY,
+	category_name VARCHAR(255)
+);
+
+INSERT INTO category_info (category_name)
+SELECT DISTINCT secondary_category FROM product_info;

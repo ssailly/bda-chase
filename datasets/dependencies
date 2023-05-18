@@ -1,9 +1,11 @@
 TAB R1(A;B),R2(A;B),R3(A;B),P1(C;D),P2(C;D),P3(C;D),Q1(E;F;G),Q2(E;F;G),Q3(E;F;G)
 TAB ds_salaries(work_year;experience_level;employment_type;job_title;salary;salary_currency;salary_in_usd;employee_residence;remote_ratio;company_location;company_size)
 TAB product_info(product_id;product_name;brand_id;brand_name;loves_count;rating;reviews;price_usd;limited_edition;new;online_only;out_of_stock;sephora_exclusive;primary_category;secondary_category;tertiary_category)
-TGD R1(B=x2;A=x1)->Q1(E=x1;F=x2;G=z1)
-TGD Q2(E=y1;F=x1;G=y2)->P2(C=x1;D=z2)
+TGD R1(B=x2;A=x1)->Q1(E=x1;F=x2)
+TGD Q2(F=x1)->P2(C=x1)
 EGD R3(A=x1;B=y1),P3(C=y2;D=x2),R3.B=P3.C->R3.A=P3.D
 EGD ds_salaries.salary_currency='USD'->ds_salaries.salary=ds_salaries.salary_in_usd
+TGD ds_salaries(work_year=x1,job_title=x2,company_location='US')->ds_titles_us(work_year=x1,job_title=x2)
 EGD product_info.out_of_stock='true',product_info.limited_edition='true',product_info.sephora_exclusive='true',product_info.online_only='true'->product_info.price_usd='-1'
 EGD product_info.rating='1'->product_info.out_of_stock='false'
+TGD product_info(primary_category=x1)->category_info(category_name=x1)
