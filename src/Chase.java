@@ -173,10 +173,10 @@ public class Chase {
         for(Dependency.Atom atomPhi: egd.phi) {
             if(atomPhi instanceof Dependency.EqualityAtom) {
                 Dependency.EqualityAtom equalityAtom = (Dependency.EqualityAtom) atomPhi;
-                String table1Name = equalityAtom.table1.getName();
-                String table2Name = equalityAtom.table2.getName();
-                if(!tablesPhi.contains(table1Name)) tablesPhi += equalityAtom.table1.getName() + ",";
-                if(!tablesPhi.contains(table2Name)) tablesPhi += equalityAtom.table2.getName() + ",";
+                String table1Name = equalityAtom.isConst1 ? "" : equalityAtom.table1.getName();
+                String table2Name = equalityAtom.isConst2 ? "" : equalityAtom.table2.getName();
+                if(!tablesPhi.contains(table1Name) && !table1Name.equals("")) tablesPhi += equalityAtom.table1.getName() + ",";
+                if(!tablesPhi.contains(table2Name) && !table2Name.equals("")) tablesPhi += equalityAtom.table2.getName() + ",";
                 if(equalityAtom.isConst1) {
                     cstPhi += equalityAtom.table2.getName() + "." + equalityAtom.nomCol2 + " = '" + equalityAtom.nomCol1 + "' AND ";
                 } else if (equalityAtom.isConst2) {
@@ -196,8 +196,8 @@ public class Chase {
             }
         }
         tablesPhi = tablesPhi.substring(0, tablesPhi.length() - 1); // remove last comma
-        cstPhi = cstPhi.substring(0, cstPhi.length() - 5); // remove last AND
-        colPhi = colPhi.substring(0, colPhi.length() - 1); // remove last comma
+        cstPhi = cstPhi.length() > 5 ? cstPhi.substring(0, cstPhi.length() - 5) : cstPhi; // remove last AND
+        colPhi = colPhi.length() > 1 ? colPhi.substring(0, colPhi.length() - 1) : colPhi; // remove last comma
 
         /**
          * La deuxieme partie du where s'assure l'existence de tuples
@@ -261,13 +261,15 @@ public class Chase {
     }
 
     private static void updateTable(Connection conn, String tableToUpdate, String refTable, String colToUpdate, String refCol, String wherePart) {
+        String fromPart = tableToUpdate.equals(refTable) ? "" : " FROM " + refTable + " ";
+        String secondAndPart = tableToUpdate.equals(refTable) ? "" : refTable + ".";
         String updateQuery =
                 "UPDATE " + tableToUpdate
                 + " SET " + colToUpdate + " = " + refTable + "." + refCol
-                + " FROM " + refTable + " " + wherePart
+                + fromPart + " " + wherePart
                 + " AND (" + refTable + "." + refCol + "<>" + tableToUpdate+ "." + colToUpdate
                 + " OR " + tableToUpdate+ "." + colToUpdate + " IS NULL)"
-                + " AND " + refTable + "." + refCol + " IS NOT NULL;";
+                + " AND " + secondAndPart + refCol + " IS NOT NULL;";
         System.out.println("Mise a jour ->\n\t" + updateQuery);
 
         try (Statement statement = conn.createStatement()) {
@@ -276,6 +278,7 @@ public class Chase {
             e.printStackTrace();
         }
     }
+
     private static void updateTableWithConstant(Connection conn, String tableToUpdate, String colToUpdate, String constant, String wherePart) {
         String updateQuery =
                 "UPDATE " + tableToUpdate
@@ -303,8 +306,8 @@ public class Chase {
         for(Dependency.Atom atomPhi: egd.phi) {
             if(atomPhi instanceof Dependency.EqualityAtom) {
                 Dependency.EqualityAtom equalityAtom = (Dependency.EqualityAtom) atomPhi;
-                String table1Name = equalityAtom.table1.getName();
-                String table2Name = equalityAtom.table2.getName();
+                String table1Name = equalityAtom.isConst1 ? "" : equalityAtom.table1.getName();
+                String table2Name = equalityAtom.isConst2 ? "" : equalityAtom.table2.getName();
                 if(!tablesPhi.contains(table1Name)) tablesPhi += equalityAtom.table1.getName() + ",";
                 if(!tablesPhi.contains(table2Name)) tablesPhi += equalityAtom.table2.getName() + ",";
                 if(equalityAtom.isConst1) {
@@ -325,9 +328,9 @@ public class Chase {
                 for(String col: relationalAtom.colonnes.keySet()) colPhi += relationalAtom.table.getName() + "." + col + ",";
             }
         }
-        tablesPhi = tablesPhi.substring(0, tablesPhi.length() - 1); // remove last comma
-        cstPhi = cstPhi.substring(0, cstPhi.length() - 5); // remove last AND
-        colPhi = colPhi.substring(0, colPhi.length() - 1); // remove last comma
+        tablesPhi = tablesPhi.length() > 0 ? tablesPhi.substring(0, tablesPhi.length() - 1) : tablesPhi; // remove last comma
+        cstPhi = cstPhi.length() > 4 ? cstPhi.substring(0, cstPhi.length() - 5) : cstPhi; // remove last AND
+        colPhi = colPhi.length() > 0 ? colPhi.substring(0, colPhi.length() - 1) : colPhi; // remove last comma
 
         /**
          * La deuxieme partie du where s'assure l'existence de tuples
@@ -336,10 +339,14 @@ public class Chase {
         String wherePart = cstPhi + " AND EXISTS (SELECT " + colPhi + " FROM " + tablesPhi + " LIMIT 1)";
 
         for(Dependency.EqualityAtom atom: egd.psi) {
+            String ifConst = "'" + atom.nomCol2 + "' ";
+            if(!atom.isConst2) ifConst = atom.table2.getName() + "." + atom.nomCol2 + " ";
             String query = "SELECT COUNT(*) FROM " + tablesPhi + " " +
-                    wherePart + " AND " + atom.table1.getName() + "." + atom.nomCol1 + " <> " + atom.table2.getName() + "." + atom.nomCol2 + " " +
-                    "OR " + atom.table1.getName() + "." + atom.nomCol1 + " IS NULL " +
-                    "OR " + atom.table2.getName() + "." + atom.nomCol2 + " IS NULL;";
+                    wherePart + " AND " + atom.table1.getName() + "." + atom.nomCol1 + " <> " + ifConst +
+                    "OR " + atom.table1.getName() + "." + atom.nomCol1 + " IS NULL ";
+            if(!atom.isConst2) query += "OR " + atom.table2.getName() + "." + atom.nomCol2 + " IS NULL";
+            query += ";";
+
             System.out.println("Verification finale EGD : " + query);
             try (Statement statement = co.createStatement()) {
                 ResultSet rs = statement.executeQuery(query);
@@ -390,7 +397,7 @@ public class Chase {
         }
         tablesPsi = tablesPsi.substring(0, tablesPsi.length() - 1);
 
-        String query = "SELECT ";
+        String query = "SELECT DISTINCT ";
         // ne selectionner que les colonnes de phi qui sont impliquer
         for(Dependency.RelationalAtom atomPhi: tgd.phi) {
             for(String col: atomPhi.colonnes.keySet()) {
@@ -522,8 +529,10 @@ public class Chase {
         /**
          * Tant que toutes les dependances n'ont pas ete appliquees
          * (chaque dependance est appliquee au plus une fois)
+         * et avec timeout de 10 secondes
          */
-        while(applied != dependencies.size()) {
+        long startTime = System.currentTimeMillis();
+        while(applied != dependencies.size() && System.currentTimeMillis() - startTime < 10000) {
             for(Dependency dependency : dependencies) {
                 if(!dependency.applied) {
                     if (dependency instanceof TGD) {
@@ -573,7 +582,6 @@ public class Chase {
                 TGD tgd = (TGD) dependency;
                 if (canApply(conn, tgd)) {
                     List<Map<String, String>> tuplesNotSatisfied = verifiesTGD(conn, tgd);
-                    Map<String, String> correspondingCols = tgd.getCorrespondingColumnsFromOrder();
                     if (tuplesNotSatisfied.size() != 0) {
                         return false;
                     }

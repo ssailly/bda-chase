@@ -1,3 +1,4 @@
+import java.io.FileNotFoundException;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -5,11 +6,11 @@ import java.util.List;
 import java.util.Map;
 
 public class Main {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws FileNotFoundException {
 		try{
 			Class.forName("org.postgresql.Driver");
 			Connection co = DriverManager.getConnection("jdbc:postgresql://localhost:5432/", "postgres", "postgres");
-			Statement st = co.createStatement();
+			/* Statement st = co.createStatement();
 			ResultSet rs = st.executeQuery("SELECT * FROM tabletest");
 
 			List<String[]> tableTestString = Chase.selectAll(co, new Table("tableteststring", List.of("a", "b", "c")));
@@ -18,7 +19,7 @@ public class Main {
 					System.out.print(s + " ");
 				}
 				System.out.println();
-			}
+			} */
 
 			/*Table r = new Table("X", List.of("a", "b", "x"));
 			Table p = new Table("P", List.of("c", "d"));
@@ -78,7 +79,7 @@ public class Main {
 			System.out.println(Chase.canApply(co, tgd2));
 			System.out.println(Chase.canApply(co, egd));*/
 
-            System.out.println("----------- chase example 2 ----------");
+            /* System.out.println("----------- chase example 2 ----------");
             Table _r = new Table("_R", List.of("a", "b"));
             Table _p = new Table("_P", List.of("c", "d"));
             Table _q = new Table("_Q", List.of("e", "f", "g"));
@@ -118,16 +119,17 @@ public class Main {
 
             EGD c3 = new EGD(List.of(ra_c3phi, ra_c3phi2, ea_c3phi), List.of(ea_c3psi));
 
-            List<Dependency> dependencies = List.of(c1, c2, c3);
+            List<Dependency> dependencies = List.of(c1, c2, c3); */
 
            /* dependencies.stream().forEach(d -> {
                 if(d instanceof TGD) System.out.println(Chase.canApply(co, (TGD) d));
                 else System.out.println(Chase.canApply(co, (EGD) d));
             });*/
 
+						List<Dependency> dependencies = Parser.parse("datasets/dependencies");
             System.out.println(Chase.chase(co, dependencies) ? "BD reparee" : "BD cassee");
 
-			rs.close();
+			//rs.close();
 		} catch (SQLException e) {
 			throw new RuntimeException(e);
 		} catch (ClassNotFoundException e) {

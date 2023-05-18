@@ -124,13 +124,4 @@ public class Parser {
 		sc.close();
 		return res;
 	}
-
-	public static void main(String[] args) throws FileNotFoundException {
-		List<Dependency> dependencies = parse("datasets/dependencies");
-		System.out.println("Tables:");
-		for(Table t : tables.values()) System.out.println(t);
-		System.out.println("---------------");
-		System.out.println("Dependencies:");
-		for(Dependency d : dependencies) System.out.println(d);
-	}
 }
